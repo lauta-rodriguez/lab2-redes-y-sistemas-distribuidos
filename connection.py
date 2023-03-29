@@ -16,10 +16,33 @@ class Connection(object):
 
     def __init__(self, socket, directory):
         # FALTA: Inicializar atributos de Connection
-        pass
+        self.socket = socket
+        self.directory = directory
+    
+    def send(self, estado, mensaje):
+        """
+        Envía un mensaje al cliente.
+        """
+        try:
+            self.socket.sendall(estado.encode())
+            self.socket.sendall(mensaje.encode())
+            return True
+        except:
+            self.socket.close()
+            raise Exception("Error al enviar el mensaje")
 
     def handle(self):
         """
         Atiende eventos de la conexión hasta que termina.
         """
-        pass
+        try:
+            while True:
+                data = self.socket.recv(DEFAULT_PORT)
+                if not data:
+                    break
+                self.socket.sendall(data)
+                self.socket.close()
+                return True
+        except:
+            self.socket.close()
+            raise Exception("Handle error")

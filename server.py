@@ -24,16 +24,25 @@ class Server(object):
         print("Serving %s on %s:%s." % (directory, addr, port))
         # FALTA: Crear socket del servidor, configurarlo, asignarlo
         # a una dirección y puerto, etc.
+        try:
+            self.s =socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            self.s.bind((DEFAULT_ADDR, DEFAULT_PORT)) #asocia el socket a una direccion y puerto
+        except:
+            raise Exception("Error al crear el socket")
 
     def serve(self):
         """
         Loop principal del servidor. Se acepta una conexión a la vez
         y se espera a que concluya antes de seguir.
         """
+        # FALTA: Aceptar una conexión al server, crear una
+        # Connection para la conexión y atenderla hasta que termine.
         while True:
-            pass
-            # FALTA: Aceptar una conexión al server, crear una
-            # Connection para la conexión y atenderla hasta que termine.
+            self.s.listen() #escucha conexiones entrantes
+            socket,address= self.s.accept() #blocking call 
+            connect=connection.Connection(socket, DEFAULT_DIR)
+            connect.send("200", "OK")
+            connect.handle()
 
 
 def main():
