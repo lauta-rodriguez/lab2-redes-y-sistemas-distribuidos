@@ -19,14 +19,22 @@ class Server(object):
     especificados donde se reciben nuevas conexiones de clientes.
     """
 
+    # (hasta ahora) cada instancia del objeto Server tendrá cuatro campos :
+    # el socket, el puerto, la direccion y el directorio
     def __init__(self, addr=DEFAULT_ADDR, port=DEFAULT_PORT,
                  directory=DEFAULT_DIR):
         print("Serving %s on %s:%s." % (directory, addr, port))
         # FALTA: Crear socket del servidor, configurarlo, asignarlo
         # a una dirección y puerto, etc.
         try:
-            self.s =socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            self.s.bind((DEFAULT_ADDR, DEFAULT_PORT)) #asocia el socket a una direccion y puerto
+            self.listening_socket = socket.socket(
+                socket.AF_INET, socket.SOCK_STREAM)
+            self.listening_socket.bind((addr, port))
+            # FALTA: chequear si el directorio existe, si no existe, crearlo
+            # (ver os.path.exists y os.makedirs)
+            self.directory = directory
+            self.port = port
+            self.addr = addr
         except:
             raise Exception("Error al crear el socket")
 
