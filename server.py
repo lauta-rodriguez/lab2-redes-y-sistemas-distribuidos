@@ -38,24 +38,23 @@ class Server(object):
         except:
             raise Exception("Error al crear el socket")
 
+    def serve(self):
+        """
+        Loop principal del servidor. Se acepta una conexión a la vez
+        y se espera a que concluya antes de seguir.
+        """
 
-def serve(self):
-    """
-    Loop principal del servidor. Se acepta una conexión a la vez
-    y se espera a que concluya antes de seguir.
-    """
+        self.listening_socket.listen()  # escucha conexiones entrantes
 
-    self.listening_socket.listen()  # escucha conexiones entrantes
+        while True:
 
-    while True:
+            client_socket, client_address = self.listening_socket.accept()
 
-        client_socket, client_address = self.listening_socket.accept()
+            connect = connection.Connection(client_socket, self.directory)
 
-        connect = connection.Connection(client_socket, self.directory)
+            connect.send("200", "OK")
 
-        connect.send("200", "OK")
-
-        connect.handle()
+            connect.handle()
 
 
 def main():
