@@ -18,6 +18,20 @@ class Connection(object):
         # FALTA: Inicializar atributos de Connection
         pass
 
+    def read_line(self, buffer):
+        """
+        Lee una línea del socket, y se queda con el segmento del buffer hasta EOL.
+        """
+
+        while (not EOL in buffer) or (len(buffer) > MAX_BUFFER):
+            buffer += self.socket.recv(BUFFER_SIZE)
+
+        if len(buffer) > MAX_BUFFER:
+            return "None", buffer
+
+        line, buffer = buffer.split(EOL, 1)
+        return line, buffer
+
     def handle(self):
         """
         Atiende eventos de la conexión hasta que termina.
