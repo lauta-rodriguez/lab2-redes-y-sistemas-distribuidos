@@ -27,3 +27,10 @@ conexión. El servidor responde con un resultado exitoso (0 OK) y
 luego cierra la conexión"""
 def quit():
     pass
+
+commands = {
+    "get_file_listing": get_file_listing,
+    "get_metadata": get_metadata,
+    "get_slice": get_slice,
+    "quit": quit
+}
