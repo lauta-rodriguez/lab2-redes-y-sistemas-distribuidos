@@ -6,6 +6,7 @@
 import socket
 from constants import *
 from base64 import b64encode
+from commands import *
 
 class Connection(object):
     """
@@ -36,4 +37,22 @@ class Connection(object):
         """
         Atiende eventos de la conexión hasta que termina.
         """
-        pass
+        buffer = b""
+        while self.is_connected:
+            # En line: una linea que termina con EOL, en buffer: resto del byte stream
+            line, buffer = self.read_line(buffer)
+            if not line:
+                # El line es muy largo (más que MAX_BUFFER), (i.e., no pudimos leer una linea valida)
+                # Antes de cerrar la conexión, enviamos un mensaje de error
+                self.send(BAD_REQUEST, error_messages[BAD_REQUEST])
+                self.socket.close()
+                self.is_connected = False
+                break
+
+            # Parseamos la linea y extraemos un codigo y una lista de argumentos
+            # code, args = parse_command(line)
+            args = line.decode().split()
+
+            # TODO: si no se encuentra el comando return INVALID_COMMAND
+            code, response = commands[args[0]](args)
+            self.send(code, response.encode())
