@@ -1,4 +1,6 @@
 from constants import *
+import os
+from base64 import b64encode
 
 """No recibe argumentos y busca obtener la lista de
 archivos que están actualmente disponibles. El servidor responde
@@ -26,7 +28,9 @@ def get_metadata(*args):
     # arguments are: CMD, FILENAME
     if len(args) != 2:
         code = INVALID_ARGUMENTS
-    pass
+    else:   
+
+        
     # return (code,command)
 
 
@@ -43,8 +47,39 @@ def get_slice(*args):
     # arguments are: CMD, FILENAME, OFFSET, SIZE
     if len(args) != 4:
         code = INVALID_ARGUMENTS
-    pass
-    # return (code,command)
+        content_sliced_b64 = b''
+        
+    else:
+        directory = args[0]
+        filename = args[1]
+        offset = args[2]
+        size = args[3]
+
+        file_path = directory+filename
+        file_size = os.path.getsize(file_path)
+
+
+        if not os.path.exists(file_path):
+            code = FILE_NOT_FOUND
+            content_sliced_b64 = b''
+
+        elif offset > size or offset < 0 or size < 0 or offset+size > file_size:
+            code = BAD_OFFSET
+            content_sliced_b64 = b''
+        else:
+            # abro el archivo en modo lectura binaria, leo el contenido y lo codifico en base64
+            with open(file_path, "rb") as file:
+                content = file.read(BUFFER_SIZE)
+                # if content == -1:
+                    # code = FILE_EMPTY no se si esto es necesario
+                file.close()
+                content_sliced = content[offset:offset+size]
+
+                # codifico el contenido en base64, lo paso a cadena de bytes y le agrego el \r\n
+                content_sliced_b64 = b64encode(content_sliced).encode("ascii") + EOL
+
+    
+    return (code,content_sliced_b64)
 
 
 """No recibe argumentos y busca terminar la
@@ -53,7 +88,9 @@ luego cierra la conexión"""
 
 
 def quit():
-    pass
+    code = CODE_OK
+
+    return (code,)
 
 
 commands = {
