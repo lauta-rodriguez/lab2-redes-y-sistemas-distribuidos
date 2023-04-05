@@ -28,10 +28,16 @@ def get_metadata(*args):
     # arguments are: CMD, FILENAME
     if len(args) != 2:
         code = INVALID_ARGUMENTS
+        metadata = b''
     else:   
+            directory = args[0]
+            file_name = args[1]
 
-        
-    # return (code,command)
+            file_path = directory + file_name
+
+            metadata = str(os.path.getsize(file_path))+EOL
+     
+    return (code,metadata)
 
 
 """Recibe en el argumento FILENAME el nombre de
@@ -76,10 +82,10 @@ def get_slice(*args):
                 content_sliced = content[offset:offset+size]
 
                 # codifico el contenido en base64, lo paso a cadena de bytes y le agrego el \r\n
-                content_sliced_b64 = b64encode(content_sliced).encode("ascii") + EOL
+                slice= b64encode(content_sliced).encode("ascii") + EOL
 
     
-    return (code,content_sliced_b64)
+    return (code,slice)
 
 
 """No recibe argumentos y busca terminar la
@@ -89,7 +95,6 @@ luego cierra la conexión"""
 
 def quit():
     code = CODE_OK
-
     return (code,)
 
 
