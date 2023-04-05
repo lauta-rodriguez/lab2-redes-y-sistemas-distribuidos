@@ -15,7 +15,19 @@ def get_file_listing(*args):
     if len(args) != 1:
         code = INVALID_ARGUMENTS
 
-    return (code, 'hola desde get_file_listing\n')
+    else:
+        directory = args[0]
+         
+        if not os.path.exists(directory):
+            code = FILE_NOT_FOUND
+            file_listing = b''
+        else:
+            # obtengo la lista de archivos del directorio y les agrego el \r\n
+            file_listing = os.listdir(directory)
+            for file in file_listing:
+                file = file+EOL
+
+    return (code, file_listing)
 
 
 """Recibe un argumento FILENAME especificando un
@@ -32,10 +44,14 @@ def get_metadata(*args):
     else:   
             directory = args[0]
             file_name = args[1]
-
             file_path = directory + file_name
 
-            metadata = str(os.path.getsize(file_path))+EOL
+            if not os.path.exists(file_path):
+                code = FILE_NOT_FOUND
+                metadata = b''
+            else:
+                file_path = directory + file_name
+                metadata = str(os.path.getsize(file_path))+EOL
      
     return (code,metadata)
 
@@ -53,7 +69,7 @@ def get_slice(*args):
     # arguments are: CMD, FILENAME, OFFSET, SIZE
     if len(args) != 4:
         code = INVALID_ARGUMENTS
-        content_sliced_b64 = b''
+        slice = b''
         
     else:
         directory = args[0]
@@ -67,11 +83,11 @@ def get_slice(*args):
 
         if not os.path.exists(file_path):
             code = FILE_NOT_FOUND
-            content_sliced_b64 = b''
+            slice = b''
 
         elif offset > size or offset < 0 or size < 0 or offset+size > file_size:
             code = BAD_OFFSET
-            content_sliced_b64 = b''
+            slice = b''
         else:
             # abro el archivo en modo lectura binaria, leo el contenido y lo codifico en base64
             with open(file_path, "rb") as file:
@@ -95,7 +111,8 @@ luego cierra la conexión"""
 
 def quit():
     code = CODE_OK
-    return (code,)
+    pass
+    # return (code,)
 
 
 commands = {
