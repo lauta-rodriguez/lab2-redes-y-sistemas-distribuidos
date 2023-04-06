@@ -23,6 +23,10 @@ FILE_NOT_FOUND = 202
 BAD_OFFSET = 203
 
 
+BACKLOG = 1
+BUFFER_SIZE = 4096
+MAX_BUFFER = 4*4096
+
 error_messages = {
     CODE_OK: "OK",
     # 1xx: Errores fatales (no se pueden atender más pedidos)
