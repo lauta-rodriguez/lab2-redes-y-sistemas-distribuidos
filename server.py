@@ -11,6 +11,7 @@ import socket
 import sys
 import connection
 from constants import *
+import os
 
 
 class Server(object):
@@ -30,8 +31,11 @@ class Server(object):
             self.listening_socket = socket.socket(
                 socket.AF_INET, socket.SOCK_STREAM)
             self.listening_socket.bind((addr, port))
-            # FALTA: chequear si el directorio existe, si no existe, crearlo
-            # (ver os.path.exists y os.makedirs)
+
+            # chequea que el directorio exista, si no, lo crea
+            if not os.path.exists(directory):
+                os.makedirs(directory)
+
             self.directory = directory
             self.port = port
             self.addr = addr
