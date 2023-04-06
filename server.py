@@ -11,6 +11,7 @@ import socket
 import sys
 import connection
 from constants import *
+import threading
 
 
 class Server(object):
@@ -38,6 +39,15 @@ class Server(object):
         except:
             raise Exception("Error al crear el socket")
 
+    def handle_new_connection(self, client_socket, client_address):
+        """
+        Maneja una nueva conexión entrante. Se crea un objeto Connection
+        para manejar la comunicación con el cliente.
+        """
+        print("Nueva conexion, direccion: %s." % client_address[1])
+        connect = connection.Connection(client_socket, self.directory)
+        connect.handle()
+
     def serve(self):
         """
         Loop principal del servidor. Se acepta una conexión a la vez
@@ -50,11 +60,9 @@ class Server(object):
 
             client_socket, client_address = self.listening_socket.accept()
 
-            connect = connection.Connection(client_socket, self.directory)
-
-            connect.send("200", "OK")
-
-            connect.handle()
+            thread = threading.Thread(
+                target=self.handle_new_connection, args=(client_socket, client_address))
+            thread.start()
 
 
 def main():
