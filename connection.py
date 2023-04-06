@@ -17,7 +17,6 @@ class Connection(object):
     """
 
     def __init__(self, socket, directory):
-        # FALTA: Inicializar atributos de Connection
         self.socket = socket
         self.directory = directory
         self.is_connected = True
@@ -28,22 +27,31 @@ class Connection(object):
         """
 
         while (not EOL in buffer) or (len(buffer) > MAX_BUFFER):
-            buffer += self.socket.recv(BUFFER_SIZE).decode()
+            buffer += self.socket.recv(BUFFER_SIZE).decode("ascii")
 
         if len(buffer) > MAX_BUFFER:
-            return "None", buffer
+            return None, buffer
 
         line, buffer = buffer.split(EOL, 1)
         return line, buffer
 
-    def send(self, code, message):
+    def send(self, code, response):
+        # encode the response to base64
+        response = b64encode(response.encode())
+        # send the response to the client
+        self.socket.send(response)
+
+    def parse_command(self, line):
+        """
+        Parsea la linea y devuelve un codigo y una lista de argumentos
+        """
         pass
 
     def handle(self):
         """
         Atiende eventos de la conexión hasta que termina.
         """
-        buffer = b""
+        buffer = ""
         while self.is_connected:
             # En line: una linea que termina con EOL, en buffer: resto del byte stream
             line, buffer = self.read_line(buffer)
@@ -55,10 +63,12 @@ class Connection(object):
                 self.is_connected = False
                 break
 
-            # Parseamos la linea y extraemos un codigo y una lista de argumentos
-            # code, args = parse_command(line)
-            args = line.split()
+            # TODO: Parseamos la linea y extraemos un codigo y una lista de argumentos
+            # devolver en response un string que contenga todos los argumentos
+            # separados por espacios
+            # enviar la respuesta al cliente
 
-            # TODO: si no se encuentra el comando return INVALID_COMMAND
-            code, response = commands[args[0]](args)
-            self.send(code, response.encode())
+            if buffer == "":
+                # No hay mas datos en el buffer, cerramos la conexión
+                self.socket.close()
+                self.is_connected = False
