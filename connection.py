@@ -22,7 +22,7 @@ class Connection(object):
         self.is_connected = True
         # Print the client's address and port like this: Connected by: ('127.0.0.1', 44639)
         print(
-            f"Connected by: ('{socket.getpeername()[0]}', {socket.getpeername()[1]})\n")
+            f"Connected by: ('{socket.getpeername()[0]}', {socket.getpeername()[1]})")
 
     def read_line(self, buffer):
         """
@@ -39,10 +39,18 @@ class Connection(object):
         return line, buffer
 
     def send(self, code, response):
-        # encode the response to base64
-        response = b64encode(response.encode())
-        # send the response to the client
-        self.socket.send(response)
+        # encode the code message to base64 and send it,
+        # first convert it to string, add the EOL and encode it b64
+        # if it has no EOL at the end, append it
+
+        if not code.endswith(EOL):
+            code += EOL
+        self.socket.sendall(code.encode())
+
+        # encode the response and send it
+        if not response.endswith(EOL):
+            response += EOL
+        self.socket.sendall(response.encode())
 
     def parse_command(self, line):
         """
@@ -91,7 +99,16 @@ class Connection(object):
         nombre de uno de los archivos disponible. Una línea sin texto
         indica el fin de la lista.
         """
-        pass
+        response = ""
+        for file in os.listdir(self.directory):
+            response += file + EOL
+
+        # if the response is empty, send the empty message
+        if response == "":
+            response = "Empty directory"
+
+        print("Sending:", response)
+        self.send(get_code_message(CODE_OK), response)
 
     def get_metadata(self, filename):
         """
@@ -137,9 +154,12 @@ class Connection(object):
 
             # Parseamos la linea, obtenemos el codigo y los argumentos
             code, args = self.parse_command(line)
-            print("code: ", get_code_message(code))
-            print("args: ", args)
-            print("\n")
+
+            # Si el codigo es OK, ejecutamos el comando
+            if code == CODE_OK:
+                # Ejecutamos el comando con los argumentos si es que los tiene
+                print("Executing command: ", args[0], " with args: ", args[1:])
+                commands[args[0]](self)
 
             if buffer == "":
                 # No hay mas datos en el buffer, cerramos la conexión
