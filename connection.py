@@ -20,6 +20,9 @@ class Connection(object):
         self.socket = socket
         self.directory = directory
         self.is_connected = True
+        # Print the client's address and port like this: Connected by: ('127.0.0.1', 44639)
+        print(
+            f"Connected by: ('{socket.getpeername()[0]}', {socket.getpeername()[1]})\n")
 
     def read_line(self, buffer):
         """
@@ -43,7 +46,76 @@ class Connection(object):
 
     def parse_command(self, line):
         """
-        Parsea la linea y devuelve un codigo y una lista de argumentos
+        Parsea la linea (string) y devuelve un codigo y una lista de argumentos en donde 
+        el primer elemento es el comando y el resto son los argumentos.
+        """
+        code = CODE_OK
+        args = line.split(" ")
+
+        # chequeamos que el comando exista en las keys del diccionario
+        if args[0] not in commands:
+            code = INVALID_COMMAND
+            args = []
+
+        # chequeamos que la cantidad de argumentos sea correcta
+        else:
+            # check if the command has the correct number of arguments (except for the command itself)
+            if args[0] == list(commands.keys())[0]:
+                # get_file_listing no recibe argumentos
+                if len(args) != 1:
+                    print("Invalid number of arguments for command: ", args[0])
+                    code = INVALID_ARGUMENTS
+                    args = []
+
+            elif args[0] == list(commands.keys())[1]:
+                # get_metadata recibe un argumento
+                if len(args) != 2:
+                    code = INVALID_ARGUMENTS
+                    args = []
+
+            elif args[0] == list(commands.keys())[2]:
+                # get_slice recibe 3 argumentos
+                if len(args) != 4:
+                    code = INVALID_ARGUMENTS
+                    args = []
+
+        # si llegamos hasta aca, el comando es valido
+        # y la cantidad de argumentos tambien
+        return code, args
+
+    def get_file_listing(self):
+        """
+        Este comando no recibe argumentos y busca obtener la lista de
+        archivos que están actualmente disponibles. El servidor responde
+        con una secuencia de líneas terminadas en \r\n, cada una con el
+        nombre de uno de los archivos disponible. Una línea sin texto
+        indica el fin de la lista.
+        """
+        pass
+
+    def get_metadata(self, filename):
+        """
+        Este comando recibe un argumento FILENAME especificando un
+        nombre de archivo del cual se pretende averiguar el tamaño. El
+        servidor responde con una cadena indicando su valor en bytes
+        """
+        pass
+
+    def get_slice(self, filename, offset, length):
+        """
+        Este comando recibe en el argumento FILENAME el nombre de
+        archivo del que se pretende obtener un slice o parte. La parte se
+        especifica con un OFFSET (byte de inicio) y un SIZE (tamaño de la
+        parte esperada, en bytes), ambos no negativos . El servidor responde 
+        con el fragmento de archivo pedido codificado en base64 y un \r\n.
+        """
+        pass
+
+    def quit(self):
+        """
+        Este comando no recibe argumentos y busca terminar la
+        conexión. El servidor responde con un resultado exitoso (0 OK) y
+        luego cierra la conexión.
         """
         pass
 
@@ -63,12 +135,31 @@ class Connection(object):
                 self.is_connected = False
                 break
 
-            # TODO: Parseamos la linea y extraemos un codigo y una lista de argumentos
-            # devolver en response un string que contenga todos los argumentos
-            # separados por espacios
-            # enviar la respuesta al cliente
+            # Parseamos la linea, obtenemos el codigo y los argumentos
+            code, args = self.parse_command(line)
+            print("code: ", get_code_message(code))
+            print("args: ", args)
+            print("\n")
 
             if buffer == "":
                 # No hay mas datos en el buffer, cerramos la conexión
+                print("Buffer is empty, closing connection...")
                 self.socket.close()
                 self.is_connected = False
+
+
+# Diccionario de comandos
+commands = {
+    "get_file_listing": Connection.get_file_listing,
+    "get_metadata": Connection.get_metadata,
+    "get_slice": Connection.get_slice,
+    "quit": Connection.quit
+}
+
+
+def get_code_message(code):
+    """
+    Devuelve el mensaje asociado al codigo de respuesta.
+    """
+    msg = str(code) + " " + error_messages[code]
+    return msg
