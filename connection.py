@@ -8,6 +8,7 @@ from constants import *
 from base64 import b64encode
 from commands import *
 
+
 class Connection(object):
     """
     Conexión punto a punto entre el servidor y un cliente.
@@ -17,7 +18,9 @@ class Connection(object):
 
     def __init__(self, socket, directory):
         # FALTA: Inicializar atributos de Connection
-        pass
+        self.socket = socket
+        self.directory = directory
+        self.is_connected = True
 
     def read_line(self, buffer):
         """
@@ -25,13 +28,16 @@ class Connection(object):
         """
 
         while (not EOL in buffer) or (len(buffer) > MAX_BUFFER):
-            buffer += self.socket.recv(BUFFER_SIZE)
+            buffer += self.socket.recv(BUFFER_SIZE).decode()
 
         if len(buffer) > MAX_BUFFER:
             return "None", buffer
 
         line, buffer = buffer.split(EOL, 1)
         return line, buffer
+
+    def send(self, code, message):
+        pass
 
     def handle(self):
         """
@@ -51,7 +57,7 @@ class Connection(object):
 
             # Parseamos la linea y extraemos un codigo y una lista de argumentos
             # code, args = parse_command(line)
-            args = line.decode().split()
+            args = line.split()
 
             # TODO: si no se encuentra el comando return INVALID_COMMAND
             code, response = commands[args[0]](args)
