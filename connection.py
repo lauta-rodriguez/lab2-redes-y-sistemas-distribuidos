@@ -46,7 +46,6 @@ class Connection(object):
         code = str(code) + ' ' + code_msg
         if not code.endswith(EOL):
             code += EOL
-        print("Sending code: ", code)
         self.socket.sendall(code.encode())
 
     def send(self, code, response):
@@ -77,11 +76,13 @@ class Connection(object):
 
     def parse_command(self, line):
         """
-        Parsea la linea (string) y devuelve un codigo y una lista de argumentos en donde 
+        Parsea la linea (string) y devuelve un codigo y una lista de argumentos en donde
         el primer elemento es el comando y el resto son los argumentos.
         """
         code = CODE_OK
         args = line.split(" ")
+
+        print("Request:", line)
 
         # chequeamos que el comando exista en las keys del diccionario
         if args[0] not in commands:
@@ -91,8 +92,8 @@ class Connection(object):
         # chequeamos que la cantidad de argumentos sea correcta
         else:
             # check if the command has the correct number of arguments (except for the command itself)
-            if args[0] == list(commands.keys())[0]:
-                # get_file_listing no recibe argumentos
+            if args[0] == list(commands.keys())[0] or args[0] == list(commands.keys())[3]:
+                # ni get_file_listing ni quit reciben argumentos
                 if len(args) != 1:
                     print("Invalid number of arguments for command: ", args[0])
                     code = INVALID_ARGUMENTS
@@ -105,8 +106,10 @@ class Connection(object):
                     args = []
 
             elif args[0] == list(commands.keys())[2]:
-                # get_slice recibe 3 argumentos
-                if len(args) != 4:
+
+                # si el argumento filename no es un string o el offset o size no son enteros
+                # o si recibimos una cantidad de argumentos distinta a 4
+                if not (isinstance(args[1], str) and args[2].isdigit() and args[3].isdigit() and len(args) == 4):
                     code = INVALID_ARGUMENTS
                     args = []
 
@@ -126,7 +129,6 @@ class Connection(object):
         for file in os.listdir(self.directory):
             response += file + EOL
 
-        print("Sending:", response)
         self.send(CODE_OK, response)
 
     def get_metadata(self, filename):
@@ -135,17 +137,17 @@ class Connection(object):
         nombre de archivo del cual se pretende averiguar el tamaño. El
         servidor responde con una cadena indicando su valor en bytes
         """
+        response = ""
         # chequeamos si el archivo existe
         if not os.path.isfile(os.path.join(self.directory, filename)):
-            self.send_code_message(FILE_NOT_FOUND)
+            self.send(FILE_NOT_FOUND, response)
 
         # obtenemos el tamaño del archivo
         file_size = os.path.getsize(os.path.join(self.directory, filename))
         response = str(file_size)
-        print("Sending:", response)
         self.send(CODE_OK, response)
 
-    def get_slice(self, filename, offset, length):
+    def get_slice(self, filename, offset, size):
         """
         Este comando recibe en el argumento FILENAME el nombre de
         archivo del que se pretende obtener un slice o parte. La parte se
@@ -157,26 +159,19 @@ class Connection(object):
         if not os.path.isfile(os.path.join(self.directory, filename)):
             self.send_code_message(FILE_NOT_FOUND)
 
-        # chequeamos que el offset y el length sean no negativos
-        if int(offset) < 0:
-            self.send_code_message(INVALID_ARGUMENTS)
-
-        if int(length) < 0:
-            self.send_code_message(INVALID_ARGUMENTS)
-
         # verificamos que el offset y el length no sean mayores al tamaño del archivo
+        # y que el offset no sea negativo
         file_size = os.path.getsize(os.path.join(self.directory, filename))
-        if int(offset) + int(length) > file_size:
+        if offset + size > file_size or offset < 0:
             self.send_code_message(BAD_OFFSET)
 
         # obtenemos el slice del archivo
         with open(os.path.join(self.directory, filename), "rb") as file:
-            file.seek(int(offset))
-            slice = file.read(int(length))
+            file.seek(offset)
+            slice = file.read(size)
 
         # codificamos el slice en base64
         encoded_slice = b64encode(slice).decode("ascii")
-        print("Sending:", encoded_slice)
         self.send(CODE_OK, encoded_slice)
 
     def quit(self):
@@ -185,7 +180,10 @@ class Connection(object):
         conexión. El servidor responde con un resultado exitoso(0 OK) y
         luego cierra la conexión.
         """
-        pass
+        self.send_code_message(CODE_OK)
+        self.socket.close()
+        self.is_connected = False
+        print("Closing connection...")
 
     def handle(self):
         """
@@ -198,31 +196,37 @@ class Connection(object):
             if not line:
                 # El line es muy largo (más que MAX_BUFFER), (i.e., no pudimos leer una linea valida)
                 # Antes de cerrar la conexión, enviamos un mensaje de error
-                self.send(BAD_REQUEST, error_messages[BAD_REQUEST])
-                self.socket.close()
+                self.send_code_message(BAD_REQUEST)
                 self.is_connected = False
-                break
+                print("Closing connection...")
 
-            # Parseamos la linea, obtenemos el codigo y los argumentos
-            code, args = self.parse_command(line)
+            # chequeamos que no haya un '\n' en la linea, si lo hay, generar un BAD_EOL
+            elif '\n' in line:
+                self.send_code_message(BAD_EOL)
+                self.is_connected = False
+                print("Closing connection...")
 
-            # Si el codigo es OK, ejecutamos el comando
-            if code == CODE_OK:
-                # Ejecutamos el comando con los argumentos si es que los tiene
-                print("Executing command: ", args[0], " with args: ", args[1:])
-                # Ejecutamos el comando con los argumentos si es que los tiene
-                commands[args[0]](self, *args[1:])
-
-            # Si el codigo no es OK, enviamos el mensaje de error ya que los codigos
-            # empezados por 2 no terminan la conexion
             else:
-                self.send_code_message(code)
+                # Parseamos la linea, obtenemos el codigo y los argumentos
+                code, args = self.parse_command(line)
 
-            if buffer == "":
-                # No hay mas datos en el buffer, cerramos la conexión
-                print("Buffer is empty, closing connection...")
-                self.socket.close()
-                self.is_connected = False
+                # Si el codigo es OK, ejecutamos el comando
+                if code == CODE_OK:
+                    # Ejecutamos el comando con los argumentos si es que los tiene
+                    # si el comando es get_slice, casteamos los argumentos a int
+                    if args[0] == "get_slice":
+                        commands[args[0]](
+                            self, args[1], int(args[2]), int(args[3]))
+                    else:
+                        commands[args[0]](self, *args[1:])
+
+                # Si el codigo no es OK, enviamos el mensaje de error ya que los codigos
+                # empezados por 2 no terminan la conexion
+                else:
+                    self.send_code_message(code)
+
+        # salimos porque se seteo is_connected a False
+        self.socket.close()
 
 
 # Diccionario de comandos
