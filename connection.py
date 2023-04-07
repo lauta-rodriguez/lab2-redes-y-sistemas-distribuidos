@@ -109,7 +109,11 @@ class Connection(object):
 
                 # si el argumento filename no es un string o el offset o size no son enteros
                 # o si recibimos una cantidad de argumentos distinta a 4
-                if not (isinstance(args[1], str) and args[2].isdigit() and args[3].isdigit() and len(args) == 4):
+                if len(args) != 4:
+                    code = INVALID_ARGUMENTS
+                    args = []
+
+                elif not (isinstance(args[1], str) and args[2].isdigit() and args[3].isdigit()):
                     code = INVALID_ARGUMENTS
                     args = []
 
