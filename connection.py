@@ -38,14 +38,24 @@ class Connection(object):
         line, buffer = buffer.split(EOL, 1)
         return line, buffer
 
-    def send(self, code, response):
-        # encode the code message to base64 and send it,
-        # first convert it to string, add the EOL and encode it b64
-        # if it has no EOL at the end, append it
-
+    def send_code_message(self, code):
+        """
+        Solamente envia el codigo y el mensaje correspondiente al cliente.
+        """
+        code_msg = get_code_message(code)
+        code = str(code) + ' ' + code_msg
         if not code.endswith(EOL):
             code += EOL
+        print("Sending code: ", code)
         self.socket.sendall(code.encode())
+
+    def send(self, code, response):
+        """"
+        Envia un codigo y un mensaje al cliente.
+        Ademas envia una respuesta al cliente.
+        """
+        # send the code and message
+        self.send_code_message(code)
 
         # encode the response and send it
         if not response.endswith(EOL):
@@ -108,7 +118,7 @@ class Connection(object):
             response = "Empty directory"
 
         print("Sending:", response)
-        self.send(get_code_message(CODE_OK), response)
+        self.send(CODE_OK, response)
 
     def get_metadata(self, filename):
         """
@@ -122,8 +132,8 @@ class Connection(object):
         """
         Este comando recibe en el argumento FILENAME el nombre de
         archivo del que se pretende obtener un slice o parte. La parte se
-        especifica con un OFFSET (byte de inicio) y un SIZE (tamaño de la
-        parte esperada, en bytes), ambos no negativos . El servidor responde 
+        especifica con un OFFSET(byte de inicio) y un SIZE(tamaño de la
+        parte esperada, en bytes), ambos no negativos . El servidor responde
         con el fragmento de archivo pedido codificado en base64 y un \r\n.
         """
         pass
@@ -131,7 +141,7 @@ class Connection(object):
     def quit(self):
         """
         Este comando no recibe argumentos y busca terminar la
-        conexión. El servidor responde con un resultado exitoso (0 OK) y
+        conexión. El servidor responde con un resultado exitoso(0 OK) y
         luego cierra la conexión.
         """
         pass
@@ -159,7 +169,13 @@ class Connection(object):
             if code == CODE_OK:
                 # Ejecutamos el comando con los argumentos si es que los tiene
                 print("Executing command: ", args[0], " with args: ", args[1:])
-                commands[args[0]](self)
+                # Ejecutamos el comando con los argumentos si es que los tiene
+                commands[args[0]](self, *args[1:])
+
+            # Si el codigo no es OK, enviamos el mensaje de error ya que los codigos
+            # empezados por 2 no terminan la conexion
+            else:
+                self.send_code_message(code)
 
             if buffer == "":
                 # No hay mas datos en el buffer, cerramos la conexión
@@ -181,5 +197,4 @@ def get_code_message(code):
     """
     Devuelve el mensaje asociado al codigo de respuesta.
     """
-    msg = str(code) + " " + error_messages[code]
-    return msg
+    return str(error_messages[code])
