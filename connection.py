@@ -6,7 +6,7 @@
 import socket
 from constants import *
 from base64 import b64encode
-from commands import *
+import os
 
 
 class Connection(object):
@@ -54,13 +54,26 @@ class Connection(object):
         Envia un codigo y un mensaje al cliente.
         Ademas envia una respuesta al cliente.
         """
-        # send the code and message
-        self.send_code_message(code)
+        # if response encoding is base64, get the code message and encode it together with the code
+        if not response.startswith("base64"):
+            self.send_code_message(code)
+            if not response.endswith(EOL):
+                response += EOL
+            self.socket.sendall(response.encode())
 
-        # encode the response and send it
-        if not response.endswith(EOL):
-            response += EOL
-        self.socket.sendall(response.encode())
+        # if response encoding is base64, get the code message and encode it together with the code
+        else:
+            code_msg = get_code_message(code)
+            code = str(code) + ' ' + code_msg
+            if not code.endswith(EOL):
+                code += EOL
+            code = b64encode(code.encode())
+
+            if not response.endswith(EOL):
+                response += EOL
+
+            self.socket.sendall(code)
+            self.socket.sendall(response)
 
     def parse_command(self, line):
         """
@@ -113,10 +126,6 @@ class Connection(object):
         for file in os.listdir(self.directory):
             response += file + EOL
 
-        # if the response is empty, send the empty message
-        if response == "":
-            response = "Empty directory"
-
         print("Sending:", response)
         self.send(CODE_OK, response)
 
@@ -126,7 +135,15 @@ class Connection(object):
         nombre de archivo del cual se pretende averiguar el tamaño. El
         servidor responde con una cadena indicando su valor en bytes
         """
-        pass
+        # chequeamos si el archivo existe
+        if not os.path.isfile(os.path.join(self.directory, filename)):
+            self.send_code_message(FILE_NOT_FOUND)
+
+        # obtenemos el tamaño del archivo
+        file_size = os.path.getsize(os.path.join(self.directory, filename))
+        response = str(file_size)
+        print("Sending:", response)
+        self.send(CODE_OK, response)
 
     def get_slice(self, filename, offset, length):
         """
@@ -136,7 +153,31 @@ class Connection(object):
         parte esperada, en bytes), ambos no negativos . El servidor responde
         con el fragmento de archivo pedido codificado en base64 y un \r\n.
         """
-        pass
+        # chequeamos si el archivo existe
+        if not os.path.isfile(os.path.join(self.directory, filename)):
+            self.send_code_message(FILE_NOT_FOUND)
+
+        # chequeamos que el offset y el length sean no negativos
+        if int(offset) < 0:
+            self.send_code_message(INVALID_ARGUMENTS)
+
+        if int(length) < 0:
+            self.send_code_message(INVALID_ARGUMENTS)
+
+        # verificamos que el offset y el length no sean mayores al tamaño del archivo
+        file_size = os.path.getsize(os.path.join(self.directory, filename))
+        if int(offset) + int(length) > file_size:
+            self.send_code_message(BAD_OFFSET)
+
+        # obtenemos el slice del archivo
+        with open(os.path.join(self.directory, filename), "rb") as file:
+            file.seek(int(offset))
+            slice = file.read(int(length))
+
+        # codificamos el slice en base64
+        encoded_slice = b64encode(slice).decode("ascii")
+        print("Sending:", encoded_slice)
+        self.send(CODE_OK, encoded_slice)
 
     def quit(self):
         """
