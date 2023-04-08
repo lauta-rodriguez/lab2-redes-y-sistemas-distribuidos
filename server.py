@@ -13,6 +13,7 @@ import connection
 from constants import *
 import os
 import threading
+import time
 
 
 class Server(object):
@@ -20,7 +21,7 @@ class Server(object):
     El servidor, que crea y atiende el socket en la dirección y puerto
     especificados donde se reciben nuevas conexiones de clientes.
     """
-
+ 
     # (hasta ahora) cada instancia del objeto Server tendrá cuatro campos :
     # el socket, el puerto, la direccion y el directorio
     def __init__(self, addr=DEFAULT_ADDR, port=DEFAULT_PORT,
@@ -32,8 +33,8 @@ class Server(object):
             self.listening_socket = socket.socket(
                 socket.AF_INET, socket.SOCK_STREAM)
             self.listening_socket.bind((addr, port))
-            # FALTA: chequear si el directorio existe, si no existe, crearlo
-            # (ver os.path.exists y os.makedirs)
+            if not os.path.exists(directory):
+                os.makedirs(directory)
             self.directory = directory
             self.port = port
             self.addr = addr
@@ -45,7 +46,6 @@ class Server(object):
         Maneja una nueva conexión entrante. Se crea un objeto Connection
         para manejar la comunicación con el cliente.
         """
-        print("Nueva conexion, direccion: %s." % client_address[1])
         connect = connection.Connection(client_socket, self.directory)
         connect.handle()
 
@@ -55,16 +55,29 @@ class Server(object):
         y se espera a que concluya antes de seguir.
         """
 
-        self.listening_socket.listen(MAX_LISTEN)  # escucha conexiones entrantes
+        # escucha conexiones entrantes
+        self.listening_socket.listen(MAX_CONNECTIONS)
 
+        active_threads = []
         while True:
+            if len(active_threads) < MAX_CONNECTIONS:
+                # Accept a new connection
+                client_socket, client_address = self.listening_socket.accept()
+                # Start a new thread to handle the connection
+                thread = threading.Thread(
+                    target=self.handle_new_connection, args=(client_socket, client_address))
+                thread.start()
 
-            client_socket, client_address = self.listening_socket.accept()
+                # Add the thread to the list of active threads
+                active_threads.append(thread)
 
-            thread = threading.Thread(
-                target=self.handle_new_connection, args=(client_socket, client_address))
-            thread.start()
-
+            else:
+                # Wait for a thread to finish before accepting a new connection
+                for thread in active_threads:
+                    if not thread.is_alive():
+                        active_threads.remove(thread)
+                        break
+                time.sleep(0.1)
 
 
 def main():

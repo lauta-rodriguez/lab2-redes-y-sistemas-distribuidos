@@ -9,7 +9,7 @@ DEFAULT_DIR = 'testdata'
 DEFAULT_ADDR = '0.0.0.0'  # 0.0.0.0 representa todas las IPv4 del server
 DEFAULT_PORT = 19500
 
-MAX_LISTEN = 5
+MAX_CONNECTIONS= 5
 EOL = '\r\n'
 
 
