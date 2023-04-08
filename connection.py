@@ -29,11 +29,9 @@ class Connection(object):
         Lee una línea del socket, y se queda con el segmento del buffer hasta EOL.
         """
 
-        while (not EOL in buffer) or (len(buffer) > MAX_BUFFER):
-            try:
-                buffer += self.socket.recv(BUFFER_SIZE).decode("ascii")
-            except UnicodeError:
-                return None, buffer
+        # quitando la condicion del largo del buffer se puede recibir filenames largos para procesarlos
+        while not EOL in buffer:
+            buffer += self.socket.recv(BUFFER_SIZE).decode("ascii")
 
         if len(buffer) > MAX_BUFFER:
             return None, buffer
@@ -168,6 +166,7 @@ class Connection(object):
         elif not os.path.isfile(os.path.join(self.directory, filename)):
             self.send_code_message(FILE_NOT_FOUND)
 
+        # si llegamos hasta aca, el archivo existe y el filename  es valido
         else:
             response = ""
             # obtenemos el tamaño del archivo
@@ -192,20 +191,22 @@ class Connection(object):
         elif not os.path.isfile(os.path.join(self.directory, filename)):
             self.send_code_message(FILE_NOT_FOUND)
 
-        # verificamos que el offset y el length no sean mayores al tamaño del archivo
-        # y que el offset no sea negativo
-        file_size = os.path.getsize(os.path.join(self.directory, filename))
-        if offset + size > file_size or offset < 0:
-            self.send_code_message(BAD_OFFSET)
+        # si llegamos hasta aca, el archivo existe y el filename  es valido
+        else:
+            # verificamos que el offset y el length no sean mayores al tamaño del archivo
+            # y que el offset no sea negativo
+            file_size = os.path.getsize(os.path.join(self.directory, filename))
+            if offset + size > file_size or offset < 0:
+                self.send_code_message(BAD_OFFSET)
 
-        # obtenemos el slice del archivo
-        with open(os.path.join(self.directory, filename), "rb") as file:
-            file.seek(offset)
-            slice = file.read(size)
+            # obtenemos el slice del archivo
+            with open(os.path.join(self.directory, filename), "rb") as file:
+                file.seek(offset)
+                slice = file.read(size)
 
-        # codificamos el slice en base64
-        encoded_slice = b64encode(slice).decode("ascii")
-        self.send(CODE_OK, encoded_slice)
+            # codificamos el slice en base64
+            encoded_slice = b64encode(slice).decode("ascii")
+            self.send(CODE_OK, encoded_slice)
 
     def quit(self):
         """
