@@ -12,6 +12,7 @@ import sys
 import connection
 from constants import *
 import os
+import threading
 
 
 class Server(object):
@@ -31,16 +32,22 @@ class Server(object):
             self.listening_socket = socket.socket(
                 socket.AF_INET, socket.SOCK_STREAM)
             self.listening_socket.bind((addr, port))
-
-            # chequea que el directorio exista, si no, lo crea
-            if not os.path.exists(directory):
-                os.makedirs(directory)
-
+            # FALTA: chequear si el directorio existe, si no existe, crearlo
+            # (ver os.path.exists y os.makedirs)
             self.directory = directory
             self.port = port
             self.addr = addr
         except:
             raise Exception("Error al crear el socket")
+
+    def handle_new_connection(self, client_socket, client_address):
+        """
+        Maneja una nueva conexión entrante. Se crea un objeto Connection
+        para manejar la comunicación con el cliente.
+        """
+        print("Nueva conexion, direccion: %s." % client_address[1])
+        connect = connection.Connection(client_socket, self.directory)
+        connect.handle()
 
     def serve(self):
         """
@@ -48,15 +55,16 @@ class Server(object):
         y se espera a que concluya antes de seguir.
         """
 
-        self.listening_socket.listen()  # escucha conexiones entrantes
+        self.listening_socket.listen(MAX_LISTEN)  # escucha conexiones entrantes
 
         while True:
 
             client_socket, client_address = self.listening_socket.accept()
 
-            conn = connection.Connection(client_socket, self.directory)
+            thread = threading.Thread(
+                target=self.handle_new_connection, args=(client_socket, client_address))
+            thread.start()
 
-            conn.handle()
 
 
 def main():
