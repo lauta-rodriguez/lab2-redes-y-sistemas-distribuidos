@@ -29,23 +29,23 @@ class Connection(object):
         Lee una línea del socket, y se queda con el segmento del buffer hasta EOL.
         """
 
-        while (not EOL in buffer) or (len(buffer) > MAX_BUFFER):
+        # quitando la condicion del largo del buffer se puede recibir filenames largos para procesarlos
+        while not EOL in buffer:
             buffer += self.socket.recv(BUFFER_SIZE).decode("ascii")
 
-        if len(buffer) > MAX_BUFFER:
-            return None, buffer
-
-        line, buffer = buffer.split(EOL, 1)
-        return line, buffer
+        if EOL in buffer:
+            line, buffer = buffer.split(EOL, 1)
+            line = line.strip()
+            return line, buffer
+        else:
+            return "", buffer
 
     def send_code_message(self, code):
         """
         Solamente envia el codigo y el mensaje correspondiente al cliente.
         """
         code_msg = get_code_message(code)
-        code = str(code) + ' ' + code_msg
-        if not code.endswith(EOL):
-            code += EOL
+        code = str(code) + ' ' + code_msg + EOL
         self.socket.sendall(code.encode())
 
     def send(self, code, response):
@@ -91,7 +91,6 @@ class Connection(object):
 
         # chequeamos que la cantidad de argumentos sea correcta
         else:
-            # check if the command has the correct number of arguments (except for the command itself)
             if args[0] == list(commands.keys())[0] or args[0] == list(commands.keys())[3]:
                 # ni get_file_listing ni quit reciben argumentos
                 if len(args) != 1:
@@ -135,21 +134,43 @@ class Connection(object):
 
         self.send(CODE_OK, response)
 
+    def is_valid_filename(self, filename):
+        """
+        Chequea que el nombre del archivo sea valido.
+        """
+        is_valid = True
+        # verificamos que el nombre del archivo no sea muy largo, que sea un string y que no sea vacio
+        if len(filename) > MAX_FILENAME or not isinstance(filename, str) or len(filename) == 0:
+            is_valid = False
+
+        # verificamos que no haya caracteres prohibidos
+        elif not all(c.isalnum() or c in '-._' for c in filename):
+            is_valid = False
+
+        return is_valid
+
     def get_metadata(self, filename):
         """
         Este comando recibe un argumento FILENAME especificando un
         nombre de archivo del cual se pretende averiguar el tamaño. El
         servidor responde con una cadena indicando su valor en bytes
         """
-        response = ""
+
         # chequeamos si el archivo existe
         if not os.path.isfile(os.path.join(self.directory, filename)):
-            self.send(FILE_NOT_FOUND, response)
+            self.send_code_message(FILE_NOT_FOUND)
 
-        # obtenemos el tamaño del archivo
-        file_size = os.path.getsize(os.path.join(self.directory, filename))
-        response = str(file_size)
-        self.send(CODE_OK, response)
+        # validamos el filename
+        elif not self.is_valid_filename(filename):
+            self.send_code_message(INVALID_ARGUMENTS)
+
+        # si llegamos hasta aca, el archivo existe y el filename  es valido
+        else:
+            response = ""
+            # obtenemos el tamaño del archivo
+            file_size = os.path.getsize(os.path.join(self.directory, filename))
+            response = str(file_size)
+            self.send(CODE_OK, response)
 
     def get_slice(self, filename, offset, size):
         """
@@ -159,24 +180,31 @@ class Connection(object):
         parte esperada, en bytes), ambos no negativos . El servidor responde
         con el fragmento de archivo pedido codificado en base64 y un \r\n.
         """
+
         # chequeamos si el archivo existe
         if not os.path.isfile(os.path.join(self.directory, filename)):
             self.send_code_message(FILE_NOT_FOUND)
 
-        # verificamos que el offset y el length no sean mayores al tamaño del archivo
-        # y que el offset no sea negativo
-        file_size = os.path.getsize(os.path.join(self.directory, filename))
-        if offset + size > file_size or offset < 0:
-            self.send_code_message(BAD_OFFSET)
+        # validamos el filename
+        elif not self.is_valid_filename(filename):
+            self.send_code_message(INVALID_ARGUMENTS)
 
-        # obtenemos el slice del archivo
-        with open(os.path.join(self.directory, filename), "rb") as file:
-            file.seek(offset)
-            slice = file.read(size)
+        # si llegamos hasta aca, el archivo existe y el filename  es valido
+        else:
+            # verificamos que el offset y el length no sean mayores al tamaño del archivo
+            # y que el offset no sea negativo
+            file_size = os.path.getsize(os.path.join(self.directory, filename))
+            if offset + size > file_size or offset < 0:
+                self.send_code_message(BAD_OFFSET)
 
-        # codificamos el slice en base64
-        encoded_slice = b64encode(slice).decode("ascii")
-        self.send(CODE_OK, encoded_slice)
+            # obtenemos el slice del archivo
+            with open(os.path.join(self.directory, filename), "rb") as file:
+                file.seek(offset)
+                slice = file.read(size)
+
+            # codificamos el slice en base64
+            encoded_slice = b64encode(slice).decode("ascii")
+            self.send(CODE_OK, encoded_slice)
 
     def quit(self):
         """
@@ -185,9 +213,8 @@ class Connection(object):
         luego cierra la conexión.
         """
         self.send_code_message(CODE_OK)
-        self.socket.close()
-        self.is_connected = False
         print("Closing connection...")
+        self.is_connected = False
 
     def handle(self):
         """
@@ -197,18 +224,11 @@ class Connection(object):
         while self.is_connected:
             # En line: una linea que termina con EOL, en buffer: resto del byte stream
             line, buffer = self.read_line(buffer)
-            if not line:
-                # El line es muy largo (más que MAX_BUFFER), (i.e., no pudimos leer una linea valida)
-                # Antes de cerrar la conexión, enviamos un mensaje de error
-                self.send_code_message(BAD_REQUEST)
-                self.is_connected = False
-                print("Closing connection...")
 
             # chequeamos que no haya un '\n' en la linea, si lo hay, generar un BAD_EOL
-            elif '\n' in line:
+            if '\n' in line:
                 self.send_code_message(BAD_EOL)
-                self.is_connected = False
-                print("Closing connection...")
+                self.quit()
 
             else:
                 # Parseamos la linea, obtenemos el codigo y los argumentos

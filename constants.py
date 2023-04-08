@@ -9,7 +9,7 @@ DEFAULT_DIR = 'testdata'
 DEFAULT_ADDR = '0.0.0.0'  # 0.0.0.0 representa todas las IPv4 del server
 DEFAULT_PORT = 19500
 
-MAX_CONNECTIONS= 5
+MAX_CONNECTIONS = 5
 EOL = '\r\n'
 
 
@@ -26,6 +26,9 @@ BAD_OFFSET = 203
 BACKLOG = 1
 BUFFER_SIZE = 4096
 MAX_BUFFER = 4*4096
+
+# MAX_BUFFER - len("get_metadata") - 1 for EOL
+MAX_FILENAME = MAX_BUFFER - 13 - 1
 
 error_messages = {
     CODE_OK: "OK",
