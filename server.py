@@ -54,7 +54,7 @@ class Server(object):
         y se espera a que concluya antes de seguir.
         """
 
-        self.listening_socket.listen()  # escucha conexiones entrantes
+        self.listening_socket.listen(MAX_QUEEUE)  # escucha conexiones entrantes
 
         while True:
 
