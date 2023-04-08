@@ -30,7 +30,10 @@ class Connection(object):
         """
 
         while (not EOL in buffer) or (len(buffer) > MAX_BUFFER):
-            buffer += self.socket.recv(BUFFER_SIZE).decode("ascii")
+            try:
+                buffer += self.socket.recv(BUFFER_SIZE).decode("ascii")
+            except UnicodeError:
+                return None, buffer
 
         if len(buffer) > MAX_BUFFER:
             return None, buffer
@@ -135,21 +138,42 @@ class Connection(object):
 
         self.send(CODE_OK, response)
 
+    def is_valid_filename(self, filename):
+        """
+        Chequea que el nombre del archivo sea valido.
+        """
+        is_valid = True
+        # verificamos que el nombre del archivo no sea muy largo, que sea un string y que no sea vacio
+        if len(filename) > MAX_FILENAME or not isinstance(filename, str) or len(filename) == 0:
+            is_valid = False
+
+        # verificamos que no haya caracteres prohibidos
+        elif not all(c.isalnum() or c in '-._' for c in filename):
+            is_valid = False
+
+        return is_valid
+
     def get_metadata(self, filename):
         """
         Este comando recibe un argumento FILENAME especificando un
         nombre de archivo del cual se pretende averiguar el tamaño. El
         servidor responde con una cadena indicando su valor en bytes
         """
-        response = ""
-        # chequeamos si el archivo existe
-        if not os.path.isfile(os.path.join(self.directory, filename)):
-            self.send(FILE_NOT_FOUND, response)
 
-        # obtenemos el tamaño del archivo
-        file_size = os.path.getsize(os.path.join(self.directory, filename))
-        response = str(file_size)
-        self.send(CODE_OK, response)
+        # validamos el filename
+        if not self.is_valid_filename(filename):
+            self.send_code_message(FILE_NOT_FOUND)
+
+        # chequeamos si el archivo existe
+        elif not os.path.isfile(os.path.join(self.directory, filename)):
+            self.send_code_message(FILE_NOT_FOUND)
+
+        else:
+            response = ""
+            # obtenemos el tamaño del archivo
+            file_size = os.path.getsize(os.path.join(self.directory, filename))
+            response = str(file_size)
+            self.send(CODE_OK, response)
 
     def get_slice(self, filename, offset, size):
         """
@@ -159,8 +183,13 @@ class Connection(object):
         parte esperada, en bytes), ambos no negativos . El servidor responde
         con el fragmento de archivo pedido codificado en base64 y un \r\n.
         """
+
+        # validamos el filename
+        if not self.is_valid_filename(filename):
+            self.send_code_message(FILE_NOT_FOUND)
+
         # chequeamos si el archivo existe
-        if not os.path.isfile(os.path.join(self.directory, filename)):
+        elif not os.path.isfile(os.path.join(self.directory, filename)):
             self.send_code_message(FILE_NOT_FOUND)
 
         # verificamos que el offset y el length no sean mayores al tamaño del archivo
@@ -201,14 +230,12 @@ class Connection(object):
                 # El line es muy largo (más que MAX_BUFFER), (i.e., no pudimos leer una linea valida)
                 # Antes de cerrar la conexión, enviamos un mensaje de error
                 self.send_code_message(BAD_REQUEST)
-                self.is_connected = False
-                print("Closing connection...")
+                self.quit()
 
             # chequeamos que no haya un '\n' en la linea, si lo hay, generar un BAD_EOL
             elif '\n' in line:
                 self.send_code_message(BAD_EOL)
-                self.is_connected = False
-                print("Closing connection...")
+                self.quit()
 
             else:
                 # Parseamos la linea, obtenemos el codigo y los argumentos
