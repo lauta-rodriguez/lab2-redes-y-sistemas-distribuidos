@@ -97,8 +97,8 @@ def get_slice(*args):
                 file.close()
                 content_sliced = content[offset:offset+size]
 
-                # codifico el contenido en base64, lo paso a cadena de bytes y le agrego el \r\n
-                slice= b64encode(content_sliced).encode("ascii") + EOL
+                # codifico el contenido en base64 y le agrego el \r\n
+                slice= b64encode(content_sliced).decode("ascii") + EOL
 
     
     return (code,slice)
