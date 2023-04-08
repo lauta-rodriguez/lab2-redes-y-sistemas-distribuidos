@@ -33,20 +33,19 @@ class Connection(object):
         while not EOL in buffer:
             buffer += self.socket.recv(BUFFER_SIZE).decode("ascii")
 
-        if len(buffer) > MAX_BUFFER:
-            return None, buffer
-
-        line, buffer = buffer.split(EOL, 1)
-        return line, buffer
+        if EOL in buffer:
+            line, buffer = buffer.split(EOL, 1)
+            line = line.strip()
+            return line, buffer
+        else:
+            return "", buffer
 
     def send_code_message(self, code):
         """
         Solamente envia el codigo y el mensaje correspondiente al cliente.
         """
         code_msg = get_code_message(code)
-        code = str(code) + ' ' + code_msg
-        if not code.endswith(EOL):
-            code += EOL
+        code = str(code) + ' ' + code_msg + EOL
         self.socket.sendall(code.encode())
 
     def send(self, code, response):
@@ -92,7 +91,6 @@ class Connection(object):
 
         # chequeamos que la cantidad de argumentos sea correcta
         else:
-            # check if the command has the correct number of arguments (except for the command itself)
             if args[0] == list(commands.keys())[0] or args[0] == list(commands.keys())[3]:
                 # ni get_file_listing ni quit reciben argumentos
                 if len(args) != 1:
@@ -158,13 +156,13 @@ class Connection(object):
         servidor responde con una cadena indicando su valor en bytes
         """
 
-        # validamos el filename
-        if not self.is_valid_filename(filename):
+        # chequeamos si el archivo existe
+        if not os.path.isfile(os.path.join(self.directory, filename)):
             self.send_code_message(FILE_NOT_FOUND)
 
-        # chequeamos si el archivo existe
-        elif not os.path.isfile(os.path.join(self.directory, filename)):
-            self.send_code_message(FILE_NOT_FOUND)
+        # validamos el filename
+        elif not self.is_valid_filename(filename):
+            self.send_code_message(INVALID_ARGUMENTS)
 
         # si llegamos hasta aca, el archivo existe y el filename  es valido
         else:
@@ -183,13 +181,13 @@ class Connection(object):
         con el fragmento de archivo pedido codificado en base64 y un \r\n.
         """
 
-        # validamos el filename
-        if not self.is_valid_filename(filename):
+        # chequeamos si el archivo existe
+        if not os.path.isfile(os.path.join(self.directory, filename)):
             self.send_code_message(FILE_NOT_FOUND)
 
-        # chequeamos si el archivo existe
-        elif not os.path.isfile(os.path.join(self.directory, filename)):
-            self.send_code_message(FILE_NOT_FOUND)
+        # validamos el filename
+        elif not self.is_valid_filename(filename):
+            self.send_code_message(INVALID_ARGUMENTS)
 
         # si llegamos hasta aca, el archivo existe y el filename  es valido
         else:
@@ -215,9 +213,8 @@ class Connection(object):
         luego cierra la conexión.
         """
         self.send_code_message(CODE_OK)
-        self.socket.close()
-        self.is_connected = False
         print("Closing connection...")
+        self.is_connected = False
 
     def handle(self):
         """
@@ -227,14 +224,9 @@ class Connection(object):
         while self.is_connected:
             # En line: una linea que termina con EOL, en buffer: resto del byte stream
             line, buffer = self.read_line(buffer)
-            if not line:
-                # El line es muy largo (más que MAX_BUFFER), (i.e., no pudimos leer una linea valida)
-                # Antes de cerrar la conexión, enviamos un mensaje de error
-                self.send_code_message(BAD_REQUEST)
-                self.quit()
 
             # chequeamos que no haya un '\n' en la linea, si lo hay, generar un BAD_EOL
-            elif '\n' in line:
+            if '\n' in line:
                 self.send_code_message(BAD_EOL)
                 self.quit()
 
