@@ -277,7 +277,7 @@ class TestHFTPHard(TestBase):
                          "El servidor no entendio muchos mensajes correctos "
                          "enviados juntos")
         c.connected = False
-        c.close()
+        c.s.close()
 
     def test_big_file(self):
         self.output_file = 'bar'
