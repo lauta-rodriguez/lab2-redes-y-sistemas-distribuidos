@@ -231,24 +231,31 @@ class Connection(object):
                 self.quit()
 
             else:
-                # Parseamos la linea, obtenemos el codigo y los argumentos
-                code, args = self.parse_command(line)
 
-                # Si el codigo es OK, ejecutamos el comando
-                if code == CODE_OK:
-                    # Ejecutamos el comando con los argumentos si es que los tiene
-                    # si el comando es get_slice, casteamos los argumentos a int
-                    if args[0] == "get_slice":
-                        commands[args[0]](
-                            self, args[1], int(args[2]), int(args[3]))
+                # Envolvemos en un try/except para terminar el proceso del cliente si hay un error
+                try:
+                    # Parseamos la linea, obtenemos el codigo y los argumentos
+                    code, args = self.parse_command(line)
+
+                    # Si el codigo es OK, ejecutamos el comando
+                    if code == CODE_OK:
+                        # Ejecutamos el comando con los argumentos si es que los tiene
+                        # si el comando es get_slice, casteamos los argumentos a int
+                        if args[0] == "get_slice":
+                            commands[args[0]](
+                                self, args[1], int(args[2]), int(args[3]))
+                        else:
+                            commands[args[0]](self, *args[1:])
+
+                    # Si el codigo no es OK, enviamos el mensaje de error ya que los codigos
+                    # empezados por 2 no terminan la conexion
                     else:
-                        commands[args[0]](self, *args[1:])
+                        self.send_code_message(code)
 
-                # Si el codigo no es OK, enviamos el mensaje de error ya que los codigos
-                # empezados por 2 no terminan la conexion
-                else:
-                    self.send_code_message(code)
-
+                except Exception:
+                    self.send_code_message(INTERNAL_ERROR)
+                    self.quit()
+                
         # salimos porque se seteo is_connected a False
         self.socket.close()
 
