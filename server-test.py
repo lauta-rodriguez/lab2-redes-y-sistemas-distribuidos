@@ -192,7 +192,7 @@ class TestHFTPErrors(TestBase):
             status,
             constants.BAD_EOL,
             "El servidor no contestó 100 ante un fin de línea erróneo")
-        c.close()
+        #c.close()
 
     def test_bad_command(self):
         c = self.new_client()
