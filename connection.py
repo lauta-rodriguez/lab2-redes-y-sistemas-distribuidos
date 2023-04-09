@@ -228,7 +228,8 @@ class Connection(object):
             # chequeamos que no haya un '\n' en la linea, si lo hay, generar un BAD_EOL
             if '\n' in line:
                 self.send_code_message(BAD_EOL)
-                self.quit()
+                self.is_connected = False
+                print("Closing connection...")
 
             else:
 
@@ -254,8 +255,9 @@ class Connection(object):
 
                 except Exception:
                     self.send_code_message(INTERNAL_ERROR)
-                    self.quit()
-                
+                    self.is_connected = False
+                    print("Closing connection...")
+
         # salimos porque se seteo is_connected a False
         self.socket.close()
 
