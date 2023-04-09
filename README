@@ -1,0 +1,48 @@
+# Grupo: 29
+### Integrantes:
+Lara Kurtz,Email
+Lautaro Rodriguez,Email
+Jeremias Baez, Email: jeremias.baez@mi.unc.edu.ar
+
+
+## Organizacion del proyecto: 
+El codigo que desarrollamos esta dividido en 3 modulos: commands.py, connection.py y server.py.
+El modulo server.py se encarga de recibir las conexiones de los clientes y de crear un hilo por cada cliente que se conecta.
+El modulo connection.py es el mas complejo, ya que se encarga de recibir y parsear los comandos ingresados por el cliente, y de de llamar la funcion correspondiente del modulo commands.py.
+El modulo commands.py contiene las funciones que se encargan de realizar las acciones de los comandos ingresados por cliente en consola. El modulo connection
+
+### Modulo server:
+Este modulo como ya se explico, acepta las peteciones de conexion de los clientes y las procesa en un hilo aparte.
+Para lograr la atencion de multiples clientes surgieron dos ideas, usar la libreria __Threading__ o usar la libreria __Asyncio__. Si bien entendemos que Asyncio es mas eficiente, pero por cuetiones de simplicidad e implementacion, decidimos usar la libreria Threading. 
+
+
+
+### Modulo connection:
+
+### Modulo commands:
+En principio, la idea era realizar los comandos en el modulo connection.py, dentro de la misma clase. Pero por cuestiones de division de tareas, comodidad y legibilidad del codigo, decidimos separar los comandos en un modulo aparte.
+Los comandos que se pueden ejecutar son:
+ - get_file_listing
+ - get_metadata
+ - get_slice
+ - quit
+
+ Cada una esta explicada en detalle en el codigo.
+
+Problemas:
+Una de las dificultades que surgieron fue comprender el __proceso de codificación y decodificación de datos__ en la función __get_slice__. En particular, fue necesario entender cómo el cliente leía el fragmento enviado por el servidor.
+
+Por un lado, el cliente recibe una lista de bytes con el método `recv()` y la decodifica con `decode("ascii")` para convertirla en una cadena de caracteres ASCII. Por otro lado, con `b64decode()`, decodifica la cadena emitida y la escribe en un archivo.
+
+En el lado del servidor, el fragmento debe seguir el proceso inverso. Primero, se codifica con `b64encode()` y `encode("ascii")`, pero después de `b64encode()` ya no es necesario usar `encode("ascii")` ya que b64encode() retorna una cadena de bytes. Sin embargo, como se debe agregar el caracter EOL, se hace un `decode("ascii")`. En resumen, se toma el fragmento, se codifica en base64, se obtiene una cadena de bytes, se decodifica en ascii para agregar el carcater EOL, se codifica en ascii nuevamente, se obtiene una cadena de bytes y, finalmente, se envía al cliente con el método `sendall()`.
+
+
+
+    
+
+
+
+
+
+
+
