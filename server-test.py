@@ -264,7 +264,7 @@ class TestHFTPHard(TestBase):
             status,
             constants.CODE_OK,
             "El servidor no entendio un quit enviado de a un caracter por vez")
-        c.close()
+        c.s.close()
 
     def test_multiple_commands(self):
         c = self.new_client()
