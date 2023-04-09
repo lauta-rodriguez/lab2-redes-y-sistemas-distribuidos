@@ -56,21 +56,15 @@ class Connection(object):
         # if response encoding is base64, get the code message and encode it together with the code
         if not response.startswith("base64"):
             self.send_code_message(code)
-            if not response.endswith(EOL):
-                response += EOL
+            response += EOL
             self.socket.sendall(response.encode())
 
         # if response encoding is base64, get the code message and encode it together with the code
         else:
             code_msg = get_code_message(code)
-            code = str(code) + ' ' + code_msg
-            if not code.endswith(EOL):
-                code += EOL
+            code = str(code) + ' ' + code_msg + EOL
             code = b64encode(code.encode())
-
-            if not response.endswith(EOL):
-                response += EOL
-
+            response += EOL
             self.socket.sendall(code)
             self.socket.sendall(response)
 
@@ -94,7 +88,6 @@ class Connection(object):
             if args[0] == list(commands.keys())[0] or args[0] == list(commands.keys())[3]:
                 # ni get_file_listing ni quit reciben argumentos
                 if len(args) != 1:
-                    print("Invalid number of arguments for command: ", args[0])
                     code = INVALID_ARGUMENTS
                     args = []
 
