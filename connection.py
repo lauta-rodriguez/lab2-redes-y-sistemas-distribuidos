@@ -30,15 +30,20 @@ class Connection(object):
         """
 
         # quitando la condicion del largo del buffer se puede recibir filenames largos para procesarlos
-        while not EOL in buffer:
-            buffer += self.socket.recv(BUFFER_SIZE).decode("ascii")
+        while not EOL in buffer and self.is_connected:
+            try:
+                buffer += self.socket.recv(BUFFER_SIZE).decode("ascii")
+            except UnicodeError:
+                self.send_code_message(BAD_REQUEST)
+                self.is_connected = False
+                print("Closing connection...")
 
         if EOL in buffer:
             line, buffer = buffer.split(EOL, 1)
             line = line.strip()
             return line, buffer
         else:
-            return "", buffer
+            return "", ""
 
     def send_code_message(self, code):
         """
@@ -218,8 +223,11 @@ class Connection(object):
             # En line: una linea que termina con EOL, en buffer: resto del byte stream
             line, buffer = self.read_line(buffer)
 
+            if line == "":
+                pass
+
             # chequeamos que no haya un '\n' en la linea, si lo hay, generar un BAD_EOL
-            if '\n' in line:
+            elif '\n' in line:
                 self.send_code_message(BAD_EOL)
                 self.is_connected = False
                 print("Closing connection...")
