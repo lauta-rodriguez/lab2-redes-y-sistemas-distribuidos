@@ -1,48 +1,164 @@
-# Grupo: 29
-### Integrantes:
-Lara Kurtz,Email
-Lautaro Rodriguez,Email
-Jeremias Baez, Email: jeremias.baez@mi.unc.edu.ar
+# Grupo 29
+## Integrantes:
+- Lara Kurtz, lara.kurtz@mi.unc.edu.ar
+- Lautaro Rodri­guez, lautaro.rodriguez@mi.unc.edu.ar
+- Jeremias Baez, jeremias.baez@mi.unc.edu.ar
 
+# Estructuración del servidor
 
-## Organizacion del proyecto: 
-El codigo que desarrollamos esta dividido en 3 modulos: commands.py, connection.py y server.py.
-El modulo server.py se encarga de recibir las conexiones de los clientes y de crear un hilo por cada cliente que se conecta.
-El modulo connection.py es el mas complejo, ya que se encarga de recibir y parsear los comandos ingresados por el cliente, y de de llamar la funcion correspondiente del modulo commands.py.
-El modulo commands.py contiene las funciones que se encargan de realizar las acciones de los comandos ingresados por cliente en consola. El modulo connection
+Al lanzar el servidor se crea una instancia de la clase `Server` que se encarga
+de escuchar, mediante un socket, por peticiones de conexión provenientes de
+los clientes. El servidor tiene capacidad para atender a `MAX_CONNECTIONS`
+clientes **en simultáneo**. De no sobrepasarse la capacidad del servidor, se
+establece la conexión con el cliente creando una instancia de la clase
+`Connection` en un nuevo *thread*, específico de ese cliente.
 
-### Modulo server:
-Este modulo como ya se explico, acepta las peteciones de conexion de los clientes y las procesa en un hilo aparte.
-Para lograr la atencion de multiples clientes surgieron dos ideas, usar la libreria __Threading__ o usar la libreria __Asyncio__. Si bien entendemos que Asyncio es mas eficiente, pero por cuetiones de simplicidad e implementacion, decidimos usar la libreria Threading. 
+Una vez establecida la conexión, y mientras esta siga activa, una instancia de
+`Connection` se encargará de recibir un *byte stream* proveniente del cliente,
+el cual va a ser leído en chunks de `MAX_BUFFER` bytes y decodificado a
+*string*. Este *string* va a ser procesado para extraer de él una línea
+terminada en `EOL`, que representa un comando. De este obtenemos el nombre del
+comando y sus argumentos y llamamos a la función correspondiente.
 
+Cada *command handler* se encarga de ejecutar la petición del comando de
+acuerdo a la especificación dada en el enunciado y de enviar el resultado
+obtenido al cliente, junto con el *exit code* correspondiente.
 
+# Decisiones de diseño
 
-### Modulo connection:
+## Atributos de la clase `Connection`
 
-### Modulo commands:
-En principio, la idea era realizar los comandos en el modulo connection.py, dentro de la misma clase. Pero por cuestiones de division de tareas, comodidad y legibilidad del codigo, decidimos separar los comandos en un modulo aparte.
-Los comandos que se pueden ejecutar son:
- - get_file_listing
- - get_metadata
- - get_slice
- - quit
+Además de los atributos definidos por la cátedra, se decidió agregar a 
+`Connection` el atributo `is_connected` que usamos como variable de control
+para determinar si tenemos que continuar la comunicación con el cliente o
+terminar la conexión (que consiste en dejar de procesar peticiones del cliente
+y cerrar el socket del mismo).
+  
+## Acción en caso de error fatal
+En caso de un error fatal se termina la conexión del servidor **con el cliente 
+que lo provocó**, ya que consideramos que la ejecución de un cliente no debería
+afectar la ejecución de los demás. Esto se consigue seteando
+`is_connected` a `False` en la instancia de `Connection` correspondiente. Nunca un error fatal debería provocar la terminación del servidor.
 
- Cada una esta explicada en detalle en el codigo.
+## Modularización
+En principio íbamos a implementar los *command handlers* en un archivo distinto
+llamado `commands.py` para mejor separación de tareas y por prolijidad del 
+código. Pero se decidió implementarlos como métodos de `Connection` por 
+simplicidad del código.
 
-Problemas:
-Una de las dificultades que surgieron fue comprender el __proceso de codificación y decodificación de datos__ en la función __get_slice__. En particular, fue necesario entender cómo el cliente leía el fragmento enviado por el servidor.
+## Elección de librerías
+Incorporamos la librería `threading` para el manejo de múltiples conexiones en
+simultáneo. También se barajó la posibilidad de usar la librería `asyncio` 
+pero elegimos usar `threading` por ser más simple de implementar sin
+comprometer la funcionalidad de nuestra implementación de servidor.
+
+## Acción en caso de peticiones vacías
+En caso de una petición vacía, el servidor no hace nada y se queda esperando
+nuevas peticiones. **No tratamos este caso como `MALFORMED_REQUEST`**.
+
+# Dificultades encontradas
+
+## fallo en llamada a la función socket.recv()
+Para detectar casos del error `MALFORMED_REQUEST`, como cuando encontramos 
+caracteres ilegales dentro del *byte stream*, hacemos un manejo de excepciones
+alrededor de la llamada a la función `socket.recv()`:
+
+```python
+def read_line(self, buffer):
+    """
+    Lee una línea del socket, y se queda con el segmento del buffer hasta EOL.
+    """
+
+    while not EOL in buffer and self.is_connected:
+        try:
+            buffer += self.socket.recv(BUFFER_SIZE).decode("ascii")
+        except UnicodeError:
+            self.send_code_message(BAD_REQUEST)
+            self.is_connected = False
+            print("Closing connection...")
+            ...
+```
+
+Con este cambio seguimos pasando todos los test, sin embargo obtenemos el siguiente error, posiblemente al ejecutar `test_multiple_commands()`:
+
+```
+Exception in thread Thread-11:
+Traceback (most recent call last):
+  File "/usr/lib/python3.8/threading.py", line 932, in _bootstrap_inner
+    self.run()
+  File "/usr/lib/python3.8/threading.py", line 870, in run
+    self._target(*self._args, **self._kwargs)
+  File "server.py", line 50, in handle_new_connection
+    connect.handle()
+  File "/home/lara/famaf/2301-rysd/laboratorio/lab2/redes23lab2g29/connection.py", line 224, in handle
+    line, buffer = self.read_line(buffer)
+  File "/home/lara/famaf/2301-rysd/laboratorio/lab2/redes23lab2g29/connection.py", line 35, in read_line
+    buffer += self.socket.recv(BUFFER_SIZE).decode("ascii")
+ConnectionResetError: [Errno 104] Connection reset by peer
+```
+
+No pudimos resolverlo, ya que no encontramos porqué podría estar fallando la llamada a la función  `socket.recv()`.
+
+## Debugging a partir de los test
+Fue difícil encontrar el origen de los errores que surgieron al ejecutar los
+test porque los mensajes de error no son muy descriptivos. Además, encontramos
+los problemas que listamos a continuación en la implementación de 
+`server-test.py` los cuales dificultaron el proceso de debugging ya que no
+encontrábamos los errores en nuestra implementación.
+
+### test_bad_eol()
+El método test_bad_eol provoca un fatal error que hace que se termine la conexión con el cliente, por lo que se genera un error cuando se quiere volver a terminar con c.close(). Dejamos comentada esta línea en el repositorio.
+
+```python
+class TestHFTPErrors(TestBase):
+
+    def test_bad_eol(self):
+        c = self.new_client()
+        c.send('qui\nt\n')
+        status, message = c.read_response_line(TIMEOUT)
+        self.assertEqual(
+            status,
+            constants.BAD_EOL,
+            "El servidor no contestó 100 ante un fin de línea erróneo")
+        #c.close()
+```
+
+## Codificación y decodificación de datos
+
+Una de las dificultades que surgieron fue comprender el **proceso de
+codificación y decodificación de datos** en la función `get_slice()`. En particular, fue necesario entender cómo el cliente leía el fragmento enviado por el servidor.
 
 Por un lado, el cliente recibe una lista de bytes con el método `recv()` y la decodifica con `decode("ascii")` para convertirla en una cadena de caracteres ASCII. Por otro lado, con `b64decode()`, decodifica la cadena emitida y la escribe en un archivo.
 
-En el lado del servidor, el fragmento debe seguir el proceso inverso. Primero, se codifica con `b64encode()` y `encode("ascii")`, pero después de `b64encode()` ya no es necesario usar `encode("ascii")` ya que b64encode() retorna una cadena de bytes. Sin embargo, como se debe agregar el caracter EOL, se hace un `decode("ascii")`. En resumen, se toma el fragmento, se codifica en base64, se obtiene una cadena de bytes, se decodifica en ascii para agregar el carcater EOL, se codifica en ascii nuevamente, se obtiene una cadena de bytes y, finalmente, se envía al cliente con el método `sendall()`.
+En el lado del servidor, el fragmento debe seguir el proceso inverso. Primero, se codifica con `b64encode()` y `encode("ascii")`, pero después de `b64encode()` ya no es necesario usar `encode("ascii")` ya que b64encode() retorna una cadena de bytes. Sin embargo, como se debe agregar el caracter EOL, se hace un `decode("ascii")`. En resumen, se toma el fragmento, se codifica en base64, se obtiene una cadena de bytes, se decodifica en ascii para agregar el caracter EOL, se codifica en ascii nuevamente, se obtiene una cadena de bytes y, finalmente, se envía al cliente con el método `sendall()`.
+
+# Preguntas
+1. ¿Qué estrategias existen para poder implementar este mismo servidor pero con
+capacidad de atender múltiples clientes simultáneamente? Investigue y responda
+brevemente qué cambios serían necesario en el diseño del código.
+
+Para poder implementar el servidor con capacidad de atender a múltiples
+clientes tenemos que poder manejar múltiples conexiones, resolviendo las
+correspondientes peticiones, de manera simultánea. Hay varias librerías que
+permiten lograr esto, nosotros investigamos `threading`, con la cual creamos
+un *thread* por cada conexión entrante, y `asyncio` con la cual se debe crear 
+una *corrutina* por cada conexión entrante.
+
+En ambos casos el servidor logra manejar múltiples clientes ya que cada 
+conexión es manejada por su propio *thread* o *corrutina*, mientras que el
+servidor mismo continúa escuchando por conexiones entrantes. 
 
 
+2. Pruebe ejecutar el servidor en una máquina del laboratorio, mientras
+utiliza el cliente desde otra, hacia la ip de la máquina servidor. ¿Qué
+diferencia hay si se corre el servidor desde la IP “localhost”, “127.0.0.1” o
+la IP “0.0.0.0”?
 
-    
+Las IP `localhost` y `127.0.0.1` son equivalentes e indican al servidor que
+sólo acepte conexiones que provengan de la IP de la máquina sobre la que está
+siendo ejecutado. Por lo que, en este caso, el cliente no puede conectarse al
+servidor si este ha sido lanzado en una máquina distinta.
 
-
-
-
-
-
-
+La IP `0.0.0.0` indica al servidor que acepte conexiones que provengan de
+cualquier dirección IP. Así que en este caso el cliente sí puede conectarse al
+servidor incluso si este ha sido lanzado en una máquina distinta.
