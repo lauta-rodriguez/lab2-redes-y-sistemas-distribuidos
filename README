@@ -9,9 +9,12 @@
 Al lanzar el servidor se crea una instancia de la clase `Server` que se encarga
 de escuchar, mediante un socket, por peticiones de conexión provenientes de
 los clientes. El servidor tiene capacidad para atender a `MAX_CONNECTIONS`
-clientes **en simultáneo**. De no sobrepasarse la capacidad del servidor, se
-establece la conexión con el cliente creando una instancia de la clase
-`Connection` en un nuevo *thread*, específico de ese cliente.
+clientes **en simultáneo**. Al lanzarse el servidor se crea una *thread pool*
+de `MAX_CONNECTIONS` *threads*. En el loop principal del servidor, cada
+conexión entrante se guarda en una cola, donde espera a que haya un *thread*
+libre para manejarla. Cuando un *thread* sea asignado una conexión, en este se 
+creará una instancia de la clase `Connection` con los atributos apropiados y se
+gestionará la conexión con el método `handle()`.
 
 Una vez establecida la conexión, y mientras esta siga activa, una instancia de
 `Connection` se encargará de recibir un *byte stream* proveniente del cliente,
