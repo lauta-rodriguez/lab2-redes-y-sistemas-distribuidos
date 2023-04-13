@@ -123,6 +123,29 @@ class TestHFTPErrors(TestBase):
         #c.close()
 ```
 
+### test_command_in_pieces()
+Este método manda por partes un comando `quit` al servidor, y se asegura de que
+este sea ejecutado sin problemas. Como el mismo comando ya provoca el cierre
+de la conexión, intentar volver a cerrarla con la llamada a `c.close()` genera
+problemas. 
+
+```python
+class TestHFTPHard(TestBase):
+
+    def test_command_in_pieces(self):
+        c = self.new_client()
+        for ch in 'quit\r\n':
+            c.s.send(ch.encode("ascii"))
+            os.system('sleep 1')  # Despaciiiiiiiiiiito
+        status, message = c.read_response_line(TIMEOUT)
+        self.assertEqual(
+            status,
+            constants.CODE_OK,
+            "El servidor no entendio un quit enviado de a un caracter por vez")
+        #c.close()
+        ...
+```
+
 # Preguntas
 1. ¿Qué estrategias existen para poder implementar este mismo servidor pero con
 capacidad de atender múltiples clientes simultáneamente? Investigue y responda
