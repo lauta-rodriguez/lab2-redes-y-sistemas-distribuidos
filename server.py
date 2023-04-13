@@ -62,18 +62,9 @@ class Server(object):
         
         # acepta conexiones entrantes y las asigna a un thread libre del pool, o espera a que uno se libere
         while True:
-            if len(active_threads) < MAX_CONNECTIONS:
-                # Accept a new connection
             client_socket, client_address = self.listening_socket.accept()
             executor.submit(self.handle_new_connection, client_socket, client_address)
 
-            else:
-                # Wait for a thread to finish before accepting a new connection
-                for thread in active_threads:
-                    if not thread.is_alive():
-                        active_threads.remove(thread)
-                        break
-                time.sleep(0.1)
 
 
 def main():
