@@ -20,16 +20,16 @@ class Connection(object):
         self.socket = socket
         self.directory = directory
         self.is_connected = True
-        # Print the client's address and port like this: Connected by: ('127.0.0.1', 44639)
+        # Imprime la dirección IP y el puerto del cliente con el formato "Connected by: ('127.0.0.1', 44639)"
         print(
             f"Connected by: ('{socket.getpeername()[0]}', {socket.getpeername()[1]})")
 
     def read_line(self, buffer):
         """
-        Lee una línea del socket, y se queda con el segmento del buffer hasta EOL.
+        Lee byte stream del socket, y retorna el segmento del buffer hasta EOL en line
+        y lo que queda después del EOL.
         """
 
-        # quitando la condicion del largo del buffer se puede recibir filenames largos para procesarlos
         while not EOL in buffer and self.is_connected:
             try:
                 buffer += self.socket.recv(BUFFER_SIZE).decode("ascii")
@@ -58,17 +58,17 @@ class Connection(object):
         Envia un codigo y un mensaje al cliente.
         Ademas envia una respuesta al cliente.
         """
-        # if response encoding is base64, get the code message and encode it together with the code
+
         if not response.startswith("base64"):
             self.send_code_message(code)
             response += EOL
-            self.socket.sendall(response.encode())
+            self.socket.sendall(response.encode("ascii"))
 
-        # if response encoding is base64, get the code message and encode it together with the code
+        # si la respuesta está codificada en base64, obtenemos el mensaje del código y lo codificamos junto con el código
         else:
             code_msg = get_code_message(code)
             code = str(code) + ' ' + code_msg + EOL
-            code = b64encode(code.encode())
+            code = b64encode(code.encode("ascii"))
             response += EOL
             self.socket.sendall(code)
             self.socket.sendall(response)
@@ -114,8 +114,6 @@ class Connection(object):
                     code = INVALID_ARGUMENTS
                     args = []
 
-        # si llegamos hasta aca, el comando es valido
-        # y la cantidad de argumentos tambien
         return code, args
 
     def get_file_listing(self):
@@ -162,7 +160,7 @@ class Connection(object):
         elif not self.is_valid_filename(filename):
             self.send_code_message(INVALID_ARGUMENTS)
 
-        # si llegamos hasta aca, el archivo existe y el filename  es valido
+        # si llegamos hasta aca, el archivo existe y el filename es valido
         else:
             response = ""
             # obtenemos el tamaño del archivo
@@ -224,7 +222,7 @@ class Connection(object):
             line, buffer = self.read_line(buffer)
 
             if line == "":
-                pass
+                continue
 
             # chequeamos que no haya un '\n' en la linea, si lo hay, generar un BAD_EOL
             elif '\n' in line:
