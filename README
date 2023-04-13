@@ -113,12 +113,23 @@ class TestHFTPHard(TestBase):
 capacidad de atender múltiples clientes simultáneamente? Investigue y responda
 brevemente qué cambios serían necesario en el diseño del código.
 
-Para poder implementar el servidor con capacidad de atender a múltiples
-clientes tenemos que poder manejar múltiples conexiones, resolviendo las
-correspondientes peticiones, de manera simultánea. Hay varias librerías que
-permiten lograr esto, nosotros investigamos `threading`, con la cual creamos
-un *thread* por cada conexión entrante, y `asyncio` con la cual se debe crear 
-una *corrutina* por cada conexión entrante.
+La implementación se puede realizar utilizando un **único proceso** (1)
+**programación concurrente con hilos** (2) o **múltiples procesos** (3).
+
+1. Se utiliza un único proceso que atiende los pedidos de los distintos
+clientes a medida que llegan, de manera secuencial.
+
+2. Se crea un hilo por cada nueva conexión con un cliente. En cada momento el
+procesador elige qué hilo ejecutar, por ejemplo cambiando de hilo cuando este
+queda bloqueado por una operación I/O.
+
+3. Se crea un proceso por cada cliente, pudiendo entonces ejecutarlos en
+paralelo.
+
+En cuanto a la forma de implementar las dos primeras estrategias, investigamos
+las siguientes librerías: `threading`, con la cual creamos un *thread* por
+cada conexión entrante, y `asyncio` con la cual se debe crear una *corrutina* 
+por cada conexión entrante.
 
 En ambos casos el servidor logra manejar múltiples clientes ya que cada 
 conexión es manejada por su propio *thread* o *corrutina*, mientras que el
