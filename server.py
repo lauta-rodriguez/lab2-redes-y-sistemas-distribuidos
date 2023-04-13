@@ -12,7 +12,7 @@ import sys
 import connection
 from constants import *
 import os
-import threading
+import concurrent.futures
 import time
 
 
@@ -51,25 +51,21 @@ class Server(object):
 
     def serve(self):
         """
-        Loop principal del servidor. Se acepta una conexión a la vez
-        y se espera a que concluya antes de seguir.
+        Loop principal del servidor. Se aceptan hasta MAX_CONNECTION conexiones 
+        a la vez.
         """
 
-        # escucha conexiones entrantes
-        self.listening_socket.listen(MAX_CONNECTIONS)
-
-        active_threads = []
+        # limita la cantidad de clientes que pueden estar esperando a ser atendidos
+        self.listening_socket.listen(BACKLOG)
+        # crea un pool de MAX_CONNECTION threads
+        executor = concurrent.futures.ThreadPoolExecutor(max_workers=MAX_CONNECTIONS)
+        
+        # acepta conexiones entrantes y las asigna a un thread libre del pool, o espera a que uno se libere
         while True:
             if len(active_threads) < MAX_CONNECTIONS:
                 # Accept a new connection
-                client_socket, client_address = self.listening_socket.accept()
-                # Start a new thread to handle the connection
-                thread = threading.Thread(
-                    target=self.handle_new_connection, args=(client_socket, client_address))
-                thread.start()
-
-                # Add the thread to the list of active threads
-                active_threads.append(thread)
+            client_socket, client_address = self.listening_socket.accept()
+            executor.submit(self.handle_new_connection, client_socket, client_address)
 
             else:
                 # Wait for a thread to finish before accepting a new connection
