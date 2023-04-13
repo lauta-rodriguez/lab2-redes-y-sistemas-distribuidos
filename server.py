@@ -46,8 +46,8 @@ class Server(object):
         Maneja una nueva conexión entrante. Se crea un objeto Connection
         para manejar la comunicación con el cliente.
         """
-        connect = connection.Connection(client_socket, self.directory)
-        connect.handle()
+        conn = connection.Connection(client_socket, self.directory)
+        conn.handle()
 
     def serve(self):
         """
