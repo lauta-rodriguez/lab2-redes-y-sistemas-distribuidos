@@ -58,47 +58,6 @@ nuevas peticiones. **No tratamos este caso como `MALFORMED_REQUEST`**.
 
 # Dificultades encontradas
 
-## fallo en llamada a la función socket.recv()
-Para detectar casos del error `MALFORMED_REQUEST`, como cuando encontramos 
-caracteres ilegales dentro del *byte stream*, hacemos un manejo de excepciones
-alrededor de la llamada a la función `socket.recv()`:
-
-```python
-def read_line(self, buffer):
-    """
-    Lee una línea del socket, y se queda con el segmento del buffer hasta EOL.
-    """
-
-    while not EOL in buffer and self.is_connected:
-        try:
-            buffer += self.socket.recv(BUFFER_SIZE).decode("ascii")
-        except UnicodeError:
-            self.send_code_message(BAD_REQUEST)
-            self.is_connected = False
-            print("Closing connection...")
-            ...
-```
-
-Con este cambio seguimos pasando todos los test, sin embargo obtenemos el siguiente error, posiblemente al ejecutar `test_multiple_commands()`:
-
-```
-Exception in thread Thread-11:
-Traceback (most recent call last):
-  File "/usr/lib/python3.8/threading.py", line 932, in _bootstrap_inner
-    self.run()
-  File "/usr/lib/python3.8/threading.py", line 870, in run
-    self._target(*self._args, **self._kwargs)
-  File "server.py", line 50, in handle_new_connection
-    connect.handle()
-  File "/home/lara/famaf/2301-rysd/laboratorio/lab2/redes23lab2g29/connection.py", line 224, in handle
-    line, buffer = self.read_line(buffer)
-  File "/home/lara/famaf/2301-rysd/laboratorio/lab2/redes23lab2g29/connection.py", line 35, in read_line
-    buffer += self.socket.recv(BUFFER_SIZE).decode("ascii")
-ConnectionResetError: [Errno 104] Connection reset by peer
-```
-
-No pudimos resolverlo, ya que no encontramos porqué podría estar fallando la llamada a la función  `socket.recv()`.
-
 ## Debugging a partir de los test
 Fue difícil encontrar el origen de los errores que surgieron al ejecutar los
 test porque los mensajes de error no son muy descriptivos. Además, encontramos
