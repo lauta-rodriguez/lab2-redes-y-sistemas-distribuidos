@@ -123,15 +123,6 @@ class TestHFTPErrors(TestBase):
         #c.close()
 ```
 
-## Codificación y decodificación de datos
-
-Una de las dificultades que surgieron fue comprender el **proceso de
-codificación y decodificación de datos** en la función `get_slice()`. En particular, fue necesario entender cómo el cliente leía el fragmento enviado por el servidor.
-
-Por un lado, el cliente recibe una lista de bytes con el método `recv()` y la decodifica con `decode("ascii")` para convertirla en una cadena de caracteres ASCII. Por otro lado, con `b64decode()`, decodifica la cadena emitida y la escribe en un archivo.
-
-En el lado del servidor, el fragmento debe seguir el proceso inverso. Primero, se codifica con `b64encode()` y `encode("ascii")`, pero después de `b64encode()` ya no es necesario usar `encode("ascii")` ya que b64encode() retorna una cadena de bytes. Sin embargo, como se debe agregar el caracter EOL, se hace un `decode("ascii")`. En resumen, se toma el fragmento, se codifica en base64, se obtiene una cadena de bytes, se decodifica en ascii para agregar el caracter EOL, se codifica en ascii nuevamente, se obtiene una cadena de bytes y, finalmente, se envía al cliente con el método `sendall()`.
-
 # Preguntas
 1. ¿Qué estrategias existen para poder implementar este mismo servidor pero con
 capacidad de atender múltiples clientes simultáneamente? Investigue y responda
